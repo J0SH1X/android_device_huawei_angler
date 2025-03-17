@@ -102,10 +102,6 @@ PRODUCT_PACKAGES += \
     sap.conf \
     libgps.utils
 
-# GPS configuration
-PRODUCT_COPY_FILES += \
-    device/huawei/msm8994-common/configs/gps.conf:$(TARGET_COPY_OUT_VENDOR)/etc/gps.conf:qcom
-
 
 # Keylayouts
 PRODUCT_COPY_FILES += \
