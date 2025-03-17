@@ -73,9 +73,9 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.keymaster@4.1-service
 
-# # NFC
-# PRODUCT_PACKAGES += \
-#     android.hardware.nfc@1.1-service
+# NFC
+PRODUCT_PACKAGES += \
+    android.hardware.nfc@1.1-service
 
 # Power
 PRODUCT_PACKAGES += \
