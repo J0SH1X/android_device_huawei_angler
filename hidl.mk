@@ -28,11 +28,11 @@ PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0-impl \
     android.hardware.bluetooth.audio@2.1-impl \
 
-# # Camera
-# PRODUCT_PACKAGES += \
-#     camera.device@3.2-impl \
-#     android.hardware.camera.provider@2.4-impl \
-#     android.hardware.camera.provider@2.4-service
+# Camera
+PRODUCT_PACKAGES += \
+    camera.device@3.2-impl \
+    android.hardware.camera.provider@2.4-impl \
+    android.hardware.camera.provider@2.4-service
 
 # Display
 PRODUCT_PACKAGES += \
