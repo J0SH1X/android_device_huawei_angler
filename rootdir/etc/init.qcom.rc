@@ -1,0 +1,239 @@
+#
+# Copyright 2015 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import /vendor/etc/init/hw/init.qcom.usb.rc
+
+on early-init
+    mount debugfs debugfs /sys/kernel/debug
+
+    # Allow to access debugfs for system:system
+    chmod 0755 /sys/kernel/debug
+    chown system system /sys/kernel/debug/kgsl/proc
+
+on init
+    # Create UDS structure for base VR services.
+    mkdir /dev/socket/pdx 0775 system system
+    mkdir /dev/socket/pdx/system 0775 system system
+    mkdir /dev/socket/pdx/system/buffer_hub 0775 system system
+    mkdir /dev/socket/pdx/system/performance 0775 system system
+    mkdir /dev/socket/pdx/system/vr 0775 system system
+    mkdir /dev/socket/pdx/system/vr/display 0775 system system
+    mkdir /dev/socket/pdx/system/vr/pose 0775 system system
+    mkdir /dev/socket/pdx/system/vr/sensors 0775 system system
+
+    # Setup zram options
+    write /sys/block/zram0/comp_algorithm lz4
+    write /sys/block/zram0/max_comp_streams 4
+
+    write /proc/sys/vm/page-cluster 0
+
+on fs
+
+    restorecon_recursive /persist
+    mkdir /persist/data/sfs 0700 system system
+    mkdir /persist/data/tz 0700 system system
+
+    # Enable rmnet data and aggregation
+    setprop persist.rmnet.mux enabled
+    setprop persist.rmnet.data.enable true
+    setprop persist.data.wda.enable true
+    setprop persist.data.df.agg.dl_pkt 10
+    setprop persist.data.df.agg.dl_size 4096
+
+
+
+on post-fs
+    # Allow writing to the kernel trace log.
+    chmod 0222 /sys/kernel/debug/tracing/trace_marker
+    chmod 0222 /sys/kernel/tracing/trace_marker
+
+on early-boot
+    # set RLIMIT_MEMLOCK to 64MB
+    setrlimit 8 67108864 67108864
+
+    # Busy loop to wait for devices booted by devstart_sh just in case device not ready
+    #exec - root root system -- /vendor/bin/init.qcom.devwait.sh
+
+on boot
+
+    # Enable DEBUG_SUSPEND, DEBUG_EXIT_SUSPEND, and DEBUG_WAKEUP
+    write /sys/module/wakelock/parameters/debug_mask 7
+
+    # add a cpuset for the camera daemon
+    # we want all the little cores for camera
+    mkdir /dev/cpuset/camera-daemon
+    chown system system /dev/cpuset/camera-daemon
+    chown system system /dev/cpuset/camera-daemon/tasks
+    chmod 0664 /dev/cpuset/camera-daemon/tasks
+
+
+
+    # setup permissions for fb0 related nodes
+    chown radio radio /sys/class/graphics/fb0/dynamic_dsitiming
+
+    # create symlink for fb1 as HDMI
+    symlink /dev/graphics/fb1 /dev/graphics/hdmi
+
+    # setup permissions for fb1 related nodes
+    chown system graphics /sys/class/graphics/fb1/hpd
+    chown system graphics /sys/class/graphics/fb1/vendor_name
+    chown system graphics /sys/class/graphics/fb1/product_description
+    chmod 0664 /sys/devices/virtual/graphics/fb1/hpd
+    chmod 0664 /sys/devices/virtual/graphics/fb1/vendor_name
+    chmod 0664 /sys/devices/virtual/graphics/fb1/product_description
+
+    #Create QMUX deamon socket
+    mkdir /dev/socket/qmux_radio 0770 radio radio
+    chmod 2770 /dev/socket/qmux_radio
+    mkdir /dev/socket/qmux_audio 0770 media audio
+    chmod 2770 /dev/socket/qmux_audio
+    mkdir /dev/socket/qmux_gps 0770 gps gps
+    chmod 2770 /dev/socket/qmux_gps
+
+    setprop wifi.interface wlan0
+    setprop wifi.direct.interface p2p-dev-wlan0
+
+    #wifi sar
+    chown radio radio /sys/module/wifi_sar/parameters/wifi_tx_power_limit
+
+    #compass compensation
+    chown root system /sys/class/power_supply/battery/compass_compensation
+
+ 
+    chown radio radio /sys/devices/virtual/hsicctl/hsicctl0/modem_wait
+
+    # Assign TCP buffer thresholds to be ceiling value of technology maximums
+    # Increased technology maximums should be reflected here.
+ 
+
+    # GPU Tuning
+    chown root system /sys/class/kgsl/kgsl-3d0/dispatch/inflight
+    chmod 0660 /sys/class/kgsl/kgsl-3d0/dispatch/inflight
+    chown root system /sys/class/kgsl/kgsl-3d0/dispatch/inflight_low_latency
+    chmod 0660 /sys/class/kgsl/kgsl-3d0/dispatch/inflight_low_latency
+
+
+
+    # WebView
+    chmod 0755 /sys/kernel/debug/tracing
+    chmod 0644 /sys/kernel/debug/tracing/trace_marker
+    chown webview_zygote webview_zygote /sys/kernel/debug/tracing/trace_marker
+
+on post-fs
+    # Allow writing to the kernel trace log.
+    chmod 0222 /sys/kernel/debug/tracing/trace_marker 
+
+    # hack to start loading framework
+    setprop vold.decrypt trigger_restart_framework
+
+on property:init.svc.per_mgr=running
+    start per_proxy
+
+on property:sys.shutdown.requested=*
+    stop per_proxy
+
+on post-fs
+
+on post-fs-data
+    # boot time fs tune
+
+    # Ecc_Handler qcril.db
+    mkdir /data/misc/radio 0770 system radio
+
+    setprop vold.post_fs_data_done 1
+
+    mkdir /data/misc/qsee 0770 system system
+    mkdir /data/fpc 0700 system system
+
+    #Create folder for mm-qcamera-daemon
+    mkdir /data/misc/camera 0770 camera camera
+
+    #Create folder for wpa_supplicant
+    mkdir /data/vendor/wifi 0771 wifi wifi
+    mkdir /data/vendor/wifi/wpa 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
+
+    #Create folder for display calibration data
+    mkdir /data/misc/display 0770 system graphics
+
+    # Create folder for perf daemon
+    mkdir /data/misc/perfd 0755 root system
+    chmod 2755 /data/misc/perfd
+    mkdir /data/system/perfd 0770 root system
+    rm /data/system/perfd/default_values
+    chmod 2770 /data/system/perfd
+
+    # Create the directories used by CnE subsystem
+    mkdir /data/connectivity 0771 system system
+    chown system system /data/connectivity
+
+    #Create directory from IMS services
+    mkdir /data/shared 0755
+    chown system system /data/shared
+
+    # Mark the copy complete flag to not completed
+    chown radio radio /data/misc/radio/copy_complete
+    chmod 0660 /data/misc/radio/copy_complete
+
+    # Configure bluetooth
+    chmod 0660 /proc/bluetooth/sleep/lpm
+    chmod 0660 /proc/bluetooth/sleep/btwrite
+    chmod 0660 /sys/class/rfkill/rfkill0/state
+    chmod 0660 /dev/ttyHS0
+    chown bluetooth bluetooth /proc/bluetooth/sleep/lpm
+    chown bluetooth bluetooth /proc/bluetooth/sleep/btwrite
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state
+    chown bluetooth bluetooth /dev/ttyHS0
+
+    # Create nfc local data
+    mkdir /data/vendor/nfc 0770 nfc nfc
+
+    #modify access for speaker calibdata
+    chown system system /persist/audio/speaker_calibdata.bin
+    chmod 0444 /persist/audio/speaker_calibdata.bin
+
+    #modify access for laser calibration data
+    chmod 0710 /persist/data
+    chmod 0440 /persist/data/st_offset
+    chmod 0440 /persist/data/st_xtalk
+
+    # File flags for prebuilt ril db file
+
+    chown radio radio /data/misc/radio/prebuilt_db_support
+    chmod 0400 /data/misc/radio/prebuilt_db_support
+
+    chown radio radio /data/misc/radio/db_check_done
+    chmod 0660 /data/misc/radio/db_check_done
+
+    chown system system /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+    chmod 0660 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+    chown system system /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+    chmod 0660 /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+    chown system system /sys/class/devfreq/qcom,gpubw.70/min_freq
+    chmod 0660 /sys/class/devfreq/qcom,gpubw.70/min_freq
+    chown system system /sys/devices/system/cpu/cpu4/online
+    chmod 0660 /sys/devices/system/cpu/cpu4/online
+    chown system system /sys/devices/system/cpu/cpu5/online
+    chmod 0660 /sys/devices/system/cpu/cpu5/online
+    chown system system /sys/devices/system/cpu/cpu6/online
+    chmod 0660 /sys/devices/system/cpu/cpu6/online
+    chown system system /sys/devices/system/cpu/cpu7/online
+    chmod 0660 /sys/devices/system/cpu/cpu7/online
+
+
+on property:sys.boot_completed=1
+
+    restart cameraserver
